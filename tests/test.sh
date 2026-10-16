@@ -55,6 +55,50 @@ eq "skips taken" "${SUGG[*]}" "11 d 11 f 11 g"
 suggest_collect 100
 eq "caps at n" "${#SUGG[@]}" "100"
 
+# ---- system shortcuts: your preferences win, factory defaults fill the gaps
+read_symbolic_hotkeys() {  # a sparse fake: Spotlight turned off, Mission Control moved
+  cat <<'FIXTURE'
+{
+  "AppleSymbolicHotKeys" => {
+    "64" => {
+      "enabled" => false
+      "value" => {
+        "parameters" => [
+          0 => 32
+          1 => 49
+          2 => 1048576
+        ]
+        "type" => "standard"
+      }
+    }
+    "32" => {
+      "enabled" => true
+      "value" => {
+        "parameters" => [
+          0 => 65535
+          1 => 126
+          2 => 786432
+        ]
+        "type" => "standard"
+      }
+    }
+  }
+}
+FIXTURE
+}
+TAKEN=() ENTRIES=()
+load_system 2>/dev/null
+has() { [[ -n ${TAKEN[$1]+x} ]] && echo yes || echo no; }
+eq "user disabled Spotlight"  "$(has cmd+space)"     "no"
+eq "user moved Mission Ctrl"  "$(has ctrl+up)"       "no"
+eq "moved one is taken"       "$(has ctrl+opt+up)"   "yes"
+eq "default fills the gap"    "$(has 'cmd+`')"       "yes"
+eq "default names Spotlight"  "$(action_name 64; echo "$AN")" "Spotlight search"
+TAKEN=() ENTRIES=() SEEN=()
+read_symbolic_hotkeys() { :; }   # unreadable preferences: defaults only, never crash
+load_system 2>/dev/null
+eq "unreadable -> defaults"   "$(has cmd+space)"     "yes"
+
 # ---- command line behaviour
 run() { "$KF" "$@" >/dev/null 2>&1; echo $?; }
 eq "version"        "$("$KF" --version)" "untakey 0.1.0"

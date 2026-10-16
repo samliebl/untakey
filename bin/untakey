@@ -225,6 +225,10 @@ EOF
 action_name() {  # AN = readable name for a system shortcut ID
   case $1 in
     7) AN="Move focus to the menu bar" ;; 8) AN="Move focus to the Dock" ;;
+    9) AN="Move focus to active or next window" ;; 10) AN="Move focus to the window toolbar" ;;
+    11) AN="Move focus to the floating window" ;; 12) AN="Turn keyboard navigation on/off" ;;
+    13) AN="Change the way Tab moves focus" ;; 57) AN="Move focus to the status menus" ;;
+    59) AN="Turn VoiceOver on/off" ;; 162) AN="Accessibility shortcuts" ;;
     27) AN="Move focus to next window in app" ;;
     28) AN="Save screenshot of screen" ;; 29) AN="Copy screenshot of screen" ;;
     30) AN="Save screenshot of selection" ;; 31) AN="Copy screenshot of selection" ;;
@@ -235,15 +239,51 @@ action_name() {  # AN = readable name for a system shortcut ID
     79) AN="Move left a space" ;; 81) AN="Move right a space" ;;
     98) AN="Show Help menu" ;;
     11[89] | 12[0-7]) AN="Switch to Desktop $(($1 - 117))" ;;
-    160) AN="Launchpad & Dock" ;; 163) AN="Notification Center" ;;
     184) AN="Screenshot and recording options" ;; 190) AN="Quick Note" ;;
     *) AN="System shortcut (ID $1)" ;;
   esac
 }
 
+read_symbolic_hotkeys() {  # the system-shortcut preferences, as readable text
+  defaults export com.apple.symbolichotkeys - 2>/dev/null | plutil -p - 2>/dev/null
+}
+
+# macOS only writes a shortcut into your preferences once you change it, so a
+# fresh account has almost none. These are the common factory defaults, used
+# only for shortcuts your preferences don't mention at all ("id|combo").
+load_system_defaults() {
+  local id combo
+  while IFS='|' read -r id combo; do
+    [[ -n ${SEEN[$id]+x} ]] && continue
+    parse_combo "$combo" || continue
+    action_name "$id"
+    add_entry "$PC_COMBO" "System Settings" "$AN" system
+  done <<'EOF'
+27|cmd+`
+28|shift+cmd+3
+29|ctrl+shift+cmd+3
+30|shift+cmd+4
+31|ctrl+shift+cmd+4
+32|ctrl+up
+33|ctrl+down
+36|f11
+52|opt+cmd+d
+60|ctrl+space
+61|ctrl+opt+space
+64|cmd+space
+79|ctrl+left
+81|ctrl+right
+98|shift+cmd+/
+184|shift+cmd+5
+EOF
+}
+
 load_system() {
-  local id ascii code mods m key count=0
-  while read -r id ascii code mods; do
+  local id on ascii code mods m key
+  local -A SEEN=()
+  while read -r id on ascii code mods; do
+    SEEN[$id]=1
+    (( on )) || continue
     m=0 key=
     (( mods & 262144 ))  && m=$((m | M_CTRL))
     (( mods & 524288 ))  && m=$((m | M_OPT))
@@ -264,13 +304,13 @@ load_system() {
     mods_words "$NK_MODS"
     action_name "$id"
     add_entry "$MW$NK_KEY" "System Settings" "$AN" system
-    count=$((count + 1))
-  done < <(defaults export com.apple.symbolichotkeys - 2>/dev/null | plutil -p - 2>/dev/null | awk '
+  done < <(read_symbolic_hotkeys | awk '
     /^    "[0-9]+" => \{/          { id = $1; gsub(/[^0-9]/, "", id); en = 0; n = 0 }
     /"enabled" =>/                 { en = ($3 == "true") }
     /^          [0-9] => -?[0-9]+/ { p[$1 + 0] = $3; n++ }
-    /"type" =>/                    { if (en && n >= 3) print id, p[0], p[1], p[2]; n = 0 }')
-  (( count )) || printf 'untakey: warning: could not read the system shortcuts\n' >&2
+    /"type" =>/                    { if (n >= 3) print id, en + 0, p[0], p[1], p[2]; else print id, en + 0, -1, -1, -1; n = 0 }')
+  (( ${#SEEN[@]} )) || printf 'untakey: warning: could not read your System Settings shortcuts; showing macOS defaults only\n' >&2
+  load_system_defaults
 }
 
 load_custom() {  # per-app shortcuts set in System Settings > Keyboard > App Shortcuts
