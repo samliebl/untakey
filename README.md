@@ -99,7 +99,6 @@ bash tests/test.sh
 
 ## Credits
 
-Idea and design by Sam Liebl. Written together with Claude (Anthropic) using
-Claude Code.
+Written with 🤖 and ❤️ by Sam Liebl & Claude Code.
 
 MIT licensed.
