@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Tests for keyfree. Run: bash tests/test.sh   (needs bash 4+, macOS for the smoke tests)
+# Tests for untakey. Run: bash tests/test.sh   (needs bash 4+, macOS for the smoke tests)
 
 if (( BASH_VERSINFO[0] < 4 )); then echo "tests need bash 4+ (brew install bash)"; exit 2; fi
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-KF="$ROOT/bin/keyfree"
-# shellcheck source=../bin/keyfree
+KF="$ROOT/bin/untakey"
+# shellcheck source=../bin/untakey
 source "$KF"
 set +e
 
@@ -57,7 +57,7 @@ eq "caps at n" "${#SUGG[@]}" "100"
 
 # ---- command line behaviour
 run() { "$KF" "$@" >/dev/null 2>&1; echo $?; }
-eq "version"        "$("$KF" --version)" "keyfree 0.1.0"
+eq "version"        "$("$KF" --version)" "untakey 0.1.0"
 eq "n=0"            "$(run suggest -n 0)"   "2"
 eq "n=101"          "$(run suggest -n 101)" "2"
 eq "n=abc"          "$(run suggest -n abc)" "2"

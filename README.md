@@ -1,15 +1,15 @@
-# keyfree
+# untakey
 
 Find a free keyboard shortcut on your Mac, or check whether one is taken.
 
-macOS has no single place that lists every shortcut in use. `keyfree` reads the
+macOS has no single place that lists every shortcut in use. `untakey` reads the
 places shortcuts live (System Settings, per-app shortcuts, Services, Quick
 Actions and Shortcuts) and answers three questions:
 
 ```
-keyfree list                  # what's taken?
-keyfree check ctrl+opt+cmd+n  # is this one free?
-keyfree suggest -n 10         # give me ten free ones
+untakey list                  # what's taken?
+untakey check ctrl+opt+cmd+n  # is this one free?
+untakey suggest -n 10         # give me ten free ones
 ```
 
 It is a single bash script. It only reads your preferences and never changes
@@ -18,8 +18,8 @@ anything.
 ## Install
 
 ```
-brew tap samliebl/keyfree https://github.com/samliebl/keyfree
-brew install keyfree
+brew tap samliebl/untakey https://github.com/samliebl/untakey
+brew install untakey
 ```
 
 Homebrew installs bash 5 for you. To run from a checkout instead, you need
@@ -28,14 +28,14 @@ bash 4 or newer (`brew install bash`; macOS itself ships 3.2).
 ## Use
 
 ```
-$ keyfree suggest -n 4
+$ untakey suggest -n 4
 #  SHORTCUT  NOTES
 1  ⌃⌥⌘A      -
 2  ⌃⌥⌘S      -
 3  ⌃⌥⌘D      -
 4  ⌃⌥⌘F      -
 
-$ keyfree check cmd+q ctrl+opt+cmd+z
+$ untakey check cmd+q ctrl+opt+cmd+z
 SHORTCUT  STATUS   DETAILS
 ⌘Q        ✗ Taken  macOS: Quit app
 ⌃⌥⌘Z      ✓ Free   -
@@ -61,13 +61,13 @@ menus, and ⌥ and ⇧ combos make text characters.
 When output is piped (or with `--plain`) you get plain text with no colors:
 tab-separated for `list` and `check`, one combo per line for `suggest`.
 
-`keyfree check` exits `0` if every combo is free, `1` if any is taken, and `2`
+`untakey check` exits `0` if every combo is free, `1` if any is taken, and `2`
 for bad input. Set `NO_COLOR=1` to turn colors off.
 
 ```
-keyfree check ctrl+opt+cmd+n && echo "go ahead"
-keyfree suggest -n 3 --plain | pbcopy
-keyfree list --plain > shortcuts.txt
+untakey check ctrl+opt+cmd+n && echo "go ahead"
+untakey suggest -n 3 --plain | pbcopy
+untakey list --plain > shortcuts.txt
 ```
 
 ## What it can and can't see
@@ -79,7 +79,7 @@ shortcuts (⌘Tab, ⌘Q, and so on).
 It can't see: shortcuts built into an app's own menus, shortcuts set inside
 third-party tools (Keyboard Maestro, Alfred, BetterTouchTool, Raycast), or
 sandboxed apps' private settings. "Free" means free of everything above, so a
-⌘ combo can still clash with an app. `keyfree` adds a note when that's likely.
+⌘ combo can still clash with an app. `untakey` adds a note when that's likely.
 See [BACKLOG.md](BACKLOG.md) for what's planned.
 
 ## Develop

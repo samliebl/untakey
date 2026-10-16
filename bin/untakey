@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# keyfree — find free macOS keyboard shortcuts, and check whether one is taken.
+# untakey — find free macOS keyboard shortcuts, and check whether one is taken.
 # Read-only: it only reads your preferences and never changes anything.
 
 if (( BASH_VERSINFO[0] < 4 )); then
-  printf 'keyfree needs bash 4 or newer (macOS ships 3.2).\nInstall it with: brew install bash\n' >&2
+  printf 'untakey needs bash 4 or newer (macOS ships 3.2).\nInstall it with: brew install bash\n' >&2
   exit 2
 fi
 
@@ -26,7 +26,7 @@ ERRMSG=
 NK_KEY= NK_MODS=0 PC_MODS=0 PC_KEY= PC_COMBO= PM_MODS=0 PM_KEY= PM_COMBO=
 SC_MODS=0 SC_KEY= MW= MS= KL= AN= NOTE=
 
-die() { printf 'keyfree: %s\n' "$*" >&2; exit 2; }
+die() { printf 'untakey: %s\n' "$*" >&2; exit 2; }
 
 # ---------------------------------------------------------------- keys & combos
 
@@ -270,7 +270,7 @@ load_system() {
     /"enabled" =>/                 { en = ($3 == "true") }
     /^          [0-9] => -?[0-9]+/ { p[$1 + 0] = $3; n++ }
     /"type" =>/                    { if (en && n >= 3) print id, p[0], p[1], p[2]; n = 0 }')
-  (( count )) || printf 'keyfree: warning: could not read the system shortcuts\n' >&2
+  (( count )) || printf 'untakey: warning: could not read the system shortcuts\n' >&2
 }
 
 load_custom() {  # per-app shortcuts set in System Settings > Keyboard > App Shortcuts
@@ -389,13 +389,13 @@ combo_note() {  # NOTE = a heads-up about combos that clash with typing or app m
 
 usage() {
   cat <<'EOF'
-keyfree — find free macOS keyboard shortcuts, and check whether one is taken.
+untakey — find free macOS keyboard shortcuts, and check whether one is taken.
 
 Usage:
-  keyfree list [--source system|custom|services|builtin]
-  keyfree check COMBO...
-  keyfree suggest [-n 1..100] [--mods SETS] [--keys KEYS]
-  keyfree --version | --help
+  untakey list [--source system|custom|services|builtin]
+  untakey check COMBO...
+  untakey suggest [-n 1..100] [--mods SETS] [--keys KEYS]
+  untakey --version | --help
 
 COMBO can be written ctrl+opt+cmd+n or ⌃⌥⌘N.
 Output is a table in the terminal and plain text when piped (or with --plain).
@@ -406,7 +406,7 @@ Output is a table in the terminal and plain text when piped (or with --plain).
               --mods  comma-separated modifier sets, e.g. "ctrl+opt,ctrl+opt+cmd"
               --keys  comma-separated keys to try, e.g. "n,t,f5"
 
-keyfree only reads your preferences. It never changes anything.
+untakey only reads your preferences. It never changes anything.
 EOF
 }
 
@@ -417,7 +417,7 @@ cmd_list() {
       --source)
         [[ $# -ge 2 ]] || die "--source needs a value (system, custom, services or builtin)"
         src=$2; shift 2 ;;
-      *) die "unknown option for list: $1 (try keyfree --help)" ;;
+      *) die "unknown option for list: $1 (try untakey --help)" ;;
     esac
   done
   case $src in all | system | custom | services | builtin) ;; *) die "unknown source '$src'" ;; esac
@@ -439,12 +439,12 @@ cmd_list() {
 }
 
 cmd_check() {
-  (( $# )) || die "check needs at least one shortcut, e.g. keyfree check ctrl+opt+cmd+n"
+  (( $# )) || die "check needs at least one shortcut, e.g. untakey check ctrl+opt+cmd+n"
   local arg bad=0 taken=0 detail
   local -a combos=() mods=() keys=()
   for arg in "$@"; do
     if parse_combo "$arg"; then combos+=("$PC_COMBO") mods+=("$PC_MODS") keys+=("$PC_KEY")
-    else printf 'keyfree: %s\n' "$ERRMSG" >&2; bad=1
+    else printf 'untakey: %s\n' "$ERRMSG" >&2; bad=1
     fi
   done
   (( ${#combos[@]} )) || exit 2
@@ -493,7 +493,7 @@ cmd_suggest() {
       -n | --count) [[ $# -ge 2 ]] || die "$1 needs a number"; n=$2; shift 2 ;;
       --mods) [[ $# -ge 2 ]] || die "--mods needs a value"; modarg=$2; shift 2 ;;
       --keys) [[ $# -ge 2 ]] || die "--keys needs a value"; keyarg=$2; shift 2 ;;
-      *) die "unknown option for suggest: $1 (try keyfree --help)" ;;
+      *) die "unknown option for suggest: $1 (try untakey --help)" ;;
     esac
   done
   [[ $n =~ ^[0-9]+$ ]] && (( 10#$n >= 1 && 10#$n <= 100 )) || die "-n must be a whole number from 1 to 100"
@@ -518,7 +518,7 @@ cmd_suggest() {
   load_all
   suggest_collect "$n"
   if (( ${#SUGG[@]} == 0 )); then
-    printf 'keyfree: no free shortcuts matched those options\n' >&2
+    printf 'untakey: no free shortcuts matched those options\n' >&2
     exit 1
   fi
   ROWS=()
@@ -539,7 +539,7 @@ cmd_suggest() {
 }
 
 main() {
-  [[ $(uname) == Darwin ]] || die "keyfree only works on macOS."
+  [[ $(uname) == Darwin ]] || die "untakey only works on macOS."
   local -a args=()
   local a
   for a in "$@"; do
@@ -554,7 +554,7 @@ main() {
     check) cmd_check "$@" ;;
     suggest) cmd_suggest "$@" ;;
     help | -h | --help) usage ;;
-    version | -V | --version) printf 'keyfree %s\n' "$VERSION" ;;
+    version | -V | --version) printf 'untakey %s\n' "$VERSION" ;;
     *) usage >&2; exit 2 ;;
   esac
 }

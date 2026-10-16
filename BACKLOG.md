@@ -5,14 +5,14 @@ growing the current build.
 
 ## Next up (small)
 - `--format json` and `--format csv` for `list`, `check`, `suggest`
-- Read combos to check from stdin (`echo "ctrl+opt+cmd+n" | keyfree check -`)
+- Read combos to check from stdin (`echo "ctrl+opt+cmd+n" | untakey check -`)
 - A `conflicts` command: the same combo claimed by more than one thing
 - Install shell completions (zsh, bash) with the formula
 - Name the remaining system shortcut IDs (currently shown as "System shortcut (ID n)")
 
 ## Smarter suggestions
 - Rank by physical reach and the fewest keys, not just a fixed tier order
-- Mnemonic mode: `keyfree suggest --for "sound settings"` prefers S, O, U
+- Mnemonic mode: `untakey suggest --for "sound settings"` prefers S, O, U
 - Full-size vs compact keyboards (numpad, Page Up, etc.), via `--keyboard full|compact`
 - Option to include punctuation, arrows and numpad keys by default
 - Non-US layouts (ISO, JIS, Dvorak): match keys by position, not by character
