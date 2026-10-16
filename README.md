@@ -1,6 +1,10 @@
-# untakey
+<p align="center">
+  <img src="brand/logo.svg" alt="Three keycaps in a row; the last one is gold and smiling" width="260">
+</p>
 
-Find a free keyboard shortcut on your Mac, or check whether one is taken.
+<h1 align="center">untakey</h1>
+
+<p align="center">Find a free keyboard shortcut on your Mac, or check whether one is taken.</p>
 
 macOS has no single place that lists every shortcut in use. `untakey` reads the
 places shortcuts live (System Settings, per-app shortcuts, Services, Quick
@@ -17,14 +21,14 @@ uses only tools every Mac already has (`defaults`, `plutil`, `awk`), plus bash 5
 which Homebrew installs for you. It only reads your preferences and never
 changes anything.
 
-> **Read this first: "free" means free of the shortcuts untakey can read, not
+> **Read this first: “free” means free of the shortcuts untakey can read, not
 > free of every shortcut on your Mac.** It cannot see the shortcuts built into
-> apps' own menus (⌘S, ⌘N, ⌘B and so on), hotkeys set inside tools like
+> apps’ own menus (⌘S, ⌘N, ⌘B and so on), hotkeys set inside tools like
 > Keyboard Maestro, Alfred, BetterTouchTool or Raycast, or a few shortcuts macOS
 > handles internally. Combos that use ⌃⌥⌘ are the safest bet, because apps almost
 > never use them. macOS also only records a system shortcut once you change it,
 > so untakey fills the gaps with a built-in list of factory defaults (details
-> below). See [What it can and can't see](#what-it-can-and-cant-see).
+> below). See [What it can and can’t see](#what-it-can-and-cant-see).
 
 ## Install
 
@@ -81,53 +85,53 @@ untakey suggest -n 3 --plain | pbcopy
 untakey list --plain > shortcuts.txt
 ```
 
-## What it can and can't see
+## What it can and can’t see
 
 **It sees:**
-- Your System Settings shortcuts, plus macOS's factory defaults for any you
-  haven't touched (see below)
-- App Shortcuts you've added yourself
+- Your System Settings shortcuts, plus macOS’s factory defaults for any you
+  haven’t touched (see below)
+- App Shortcuts you’ve added yourself
 - Services, Quick Actions and Shortcuts that have a key
 - A short built-in list of fixed macOS shortcuts (⌘Tab, ⌘Q, and so on)
 
-**It can't see:**
-- Shortcuts built into an app's own menus
+**It can’t see:**
+- Shortcuts built into an app’s own menus
 - Hotkeys set inside third-party tools (Keyboard Maestro, Alfred,
   BetterTouchTool, Raycast)
 - App Shortcuts for sandboxed apps, which store their settings elsewhere
 
-"Free" means free of everything in the first list, so a ⌘ combo can still clash
-with an app. `untakey` adds a note when that's likely.
+“Free” means free of everything in the first list, so a ⌘ combo can still clash
+with an app. `untakey` adds a note when that’s likely.
 
 ### The factory-defaults baseline
 
 macOS only writes a System Settings shortcut into your preferences once you
 change it. On a fresh account the preferences hold almost nothing, so reading
-them alone would call ⌘Space (Spotlight) "free". To avoid that, `untakey` has a
+them alone would call ⌘Space (Spotlight) “free”. To avoid that, `untakey` has a
 built-in list of 16 common macOS defaults (Spotlight, screenshots, Mission
 Control, switching spaces, and so on). A default is used only when your
-preferences don't mention that shortcut at all, so anything you've changed or
+preferences don’t mention that shortcut at all, so anything you’ve changed or
 turned off is respected.
 
 The list covers the common defaults, not every one, and it was written from
 what macOS does today, so a future macOS could differ. If your preferences
-can't be read, `untakey` says so and falls back to the defaults.
+can’t be read, `untakey` says so and falls back to the defaults.
 
 ### Other things to know
 
 - **Tested on one Mac so far** (Apple silicon). It relies on the text layout of
   `plutil -p` and `defaults`, which Apple could change in a future macOS.
 - **US keyboard layout only.** Keys are matched by character, not by physical
-  position. Other layouts (Dvorak, ISO, JIS) aren't handled yet.
+  position. Other layouts (Dvorak, ISO, JIS) aren’t handled yet.
 - **The `fn` key is ignored.** Shortcuts that need it are skipped.
 - **Cautious about Services.** A Service or Shortcut with a key assigned counts
-  as taken even if you've switched it off.
-- **Some system shortcuts have no name yet** and show as "System shortcut (ID
-  n)".
+  as taken even if you’ve switched it off.
+- **Some system shortcuts have no name yet** and show as “System shortcut (ID
+  n)”.
 - **It takes a second or two to run**, because it reads your preferences each
   time.
 
-See [BACKLOG.md](BACKLOG.md) for what's planned.
+See [BACKLOG.md](BACKLOG.md) for what’s planned.
 
 ## Develop
 

@@ -41,8 +41,11 @@ Backgrounds the logo was tested on: white `#ffffff`, brown `#2e2a24`, blue `#546
 
 ## For code (terminal and docs)
 
-Suggestions, not yet applied anywhere:
-- Terminal accent: gold `#ffd21f` (256-color fallback `220`) for the "free" status or the hero value; dim or default for everything else. The existing ✓ Free / ✗ Taken output is a natural place.
+Applied in `bin/untakey` and the README:
+- Terminal accent: gold `#ffd21f` (truecolor when `COLORTERM` says so, otherwise 256-color `220`) marks the `✓ Free` status and the top suggestion; `✗ Taken` and everything else is dim or default. No red or green.
+- The README opens with `logo.svg`, centered.
+
+Still suggestions:
 - Keep the dark background as `#2e2a24` for any site or image with a dark theme; keep text cream (`#e6dfd0`) on it.
 - Respect `NO_COLOR` and non-TTY output: no color there.
 

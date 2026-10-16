@@ -8,7 +8,7 @@ growing the current build.
 - Read combos to check from stdin (`echo "ctrl+opt+cmd+n" | untakey check -`)
 - A `conflicts` command: the same combo claimed by more than one thing
 - Install shell completions (zsh, bash) with the formula
-- Name the remaining system shortcut IDs (currently shown as "System shortcut (ID n)")
+- Name the remaining system shortcut IDs (currently shown as “System shortcut (ID n)”)
 
 ## Smarter suggestions
 - Rank by physical reach and the fewest keys, not just a fixed tier order
@@ -27,6 +27,6 @@ growing the current build.
 - Raycast: not possible today (settings export is encrypted)
 
 ## Packaging
-- Tag v0.1.0, fill in the formula's sha256, publish the tap
+- Tag v0.1.0, fill in the formula’s sha256, publish the tap
 - Homebrew `brew audit --strict` pass
 - Man page

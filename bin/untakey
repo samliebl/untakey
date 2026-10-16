@@ -21,7 +21,8 @@ declare -A TAKEN=()
 ENTRIES=()          # "combo<TAB>source<TAB>action<TAB>tag"
 ROWS=()
 PLAIN=0
-BOLD= DIM= RED= GREEN= RST=
+BOLD= DIM= GOLD= RST=
+HERO_ROW=0 HERO_COL=0   # a table cell to paint gold (1-based row, 0-based column)
 ERRMSG=
 NK_KEY= NK_MODS=0 PC_MODS=0 PC_KEY= PC_COMBO= PM_MODS=0 PM_KEY= PM_COMBO=
 SC_MODS=0 SC_KEY= MW= MS= KL= AN= NOTE=
@@ -361,7 +362,11 @@ load_all() {
 setup_output() {
   [[ -t 1 ]] || PLAIN=1
   if (( PLAIN == 0 )) && [[ -z ${NO_COLOR:-} ]]; then
-    BOLD=$'\e[1m' DIM=$'\e[2m' RED=$'\e[31m' GREEN=$'\e[32m' RST=$'\e[0m'
+    BOLD=$'\e[1m' DIM=$'\e[2m' RST=$'\e[0m'
+    case ${COLORTERM:-} in
+      truecolor | 24bit) GOLD=$'\e[38;2;255;210;31m' ;;   # brand gold #ffd21f
+      *) GOLD=$'\e[38;5;220m' ;;
+    esac
   fi
 }
 
@@ -396,17 +401,23 @@ print_table() {
   done
   printf '%s\n%s%s%s\n' "$RST" "$DIM" "$line" "$RST"
 
+  local r=0
   for row in "${ROWS[@]}"; do
+    r=$((r + 1))
     IFS=$'\t' read -ra fields <<<"$row"
     for ((i = 0; i < n; i++)); do
       text=${fields[i]}
       if (( i == n - 1 && ${#text} > widths[i] )); then text="${text:0:widths[i] - 1}…"; fi
       pad=$((widths[i] - ${#text} + 2))
-      case $text in
-        '✓'*) printf '%s%s%s' "$GREEN" "$text" "$RST" ;;
-        '✗'*) printf '%s%s%s' "$RED" "$text" "$RST" ;;
-        *) printf '%s' "$text" ;;
-      esac
+      # Brand rule: gold marks the one thing that matters; everything else stays quiet.
+      if (( r == HERO_ROW && i == HERO_COL )); then printf '%s%s%s' "$GOLD" "$text" "$RST"
+      else
+        case $text in
+          '✓'*) printf '%s%s%s' "$GOLD" "$text" "$RST" ;;
+          '✗'*) printf '%s%s%s' "$DIM" "$text" "$RST" ;;
+          *) printf '%s' "$text" ;;
+        esac
+      fi
       (( i < n - 1 )) && printf '%*s' "$pad" ''
     done
     printf '\n'
@@ -571,6 +582,7 @@ cmd_suggest() {
     ROWS+=("$((i + 1))"$'\t'"$KL"$'\t'"${NOTE:--}")
   done
   if (( ! PLAIN )); then
+    HERO_ROW=1 HERO_COL=1   # the top pick is the one thing that matters
     print_table $'#\tSHORTCUT\tNOTES'
     printf '\n%s%d free shortcuts, safest first%s\n' "$DIM" "${#SUGG[@]}" "$RST"
     (( ${#SUGG[@]} < n )) && printf '%sOnly %d matched your options.%s\n' "$DIM" "${#SUGG[@]}" "$RST"
