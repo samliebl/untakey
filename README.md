@@ -1,0 +1,91 @@
+# keyfree
+
+Find a free keyboard shortcut on your Mac, or check whether one is taken.
+
+macOS has no single place that lists every shortcut in use. `keyfree` reads the
+places shortcuts live (System Settings, per-app shortcuts, Services, Quick
+Actions and Shortcuts) and answers three questions:
+
+```
+keyfree list                  # what's taken?
+keyfree check ctrl+opt+cmd+n  # is this one free?
+keyfree suggest -n 10         # give me ten free ones
+```
+
+It is a single bash script. It only reads your preferences and never changes
+anything.
+
+## Install
+
+```
+brew tap samliebl/keyfree https://github.com/samliebl/keyfree
+brew install keyfree
+```
+
+Homebrew installs bash 5 for you. To run from a checkout instead, you need
+bash 4 or newer (`brew install bash`; macOS itself ships 3.2).
+
+## Use
+
+```
+$ keyfree suggest -n 4
+#  SHORTCUT  NOTES
+1  ⌃⌥⌘A      -
+2  ⌃⌥⌘S      -
+3  ⌃⌥⌘D      -
+4  ⌃⌥⌘F      -
+
+$ keyfree check cmd+q ctrl+opt+cmd+z
+SHORTCUT  STATUS   DETAILS
+⌘Q        ✗ Taken  macOS: Quit app
+⌃⌥⌘Z      ✓ Free   -
+```
+
+Write shortcuts as `ctrl+opt+cmd+n` or `⌃⌥⌘N`. Modifiers: `ctrl`, `opt` (or
+`alt`), `shift`, `cmd`.
+
+### suggest
+
+| Option | Meaning |
+| --- | --- |
+| `-n 1..100` | How many to show (default 10; anything outside 1–100 is an error) |
+| `--mods SETS` | Comma-separated modifier sets to use, e.g. `ctrl+opt,ctrl+opt+cmd` |
+| `--keys KEYS` | Comma-separated keys to try, e.g. `n,t,f5` |
+
+Suggestions come safest first: ⌃⌥⌘, then ⌃⌥, ⌃⌘, ⌥⌘, then the same with ⇧
+added. Plain ⌘, ⌥ or ⇧ combos are left out on purpose: apps use ⌘ in their
+menus, and ⌥ and ⇧ combos make text characters.
+
+### Scripting
+
+When output is piped (or with `--plain`) you get plain text with no colors:
+tab-separated for `list` and `check`, one combo per line for `suggest`.
+
+`keyfree check` exits `0` if every combo is free, `1` if any is taken, and `2`
+for bad input. Set `NO_COLOR=1` to turn colors off.
+
+```
+keyfree check ctrl+opt+cmd+n && echo "go ahead"
+keyfree suggest -n 3 --plain | pbcopy
+keyfree list --plain > shortcuts.txt
+```
+
+## What it can and can't see
+
+It sees: System Settings shortcuts, App Shortcuts you've added, Services /
+Quick Actions / Shortcuts that have a key, and a short list of fixed macOS
+shortcuts (⌘Tab, ⌘Q, and so on).
+
+It can't see: shortcuts built into an app's own menus, shortcuts set inside
+third-party tools (Keyboard Maestro, Alfred, BetterTouchTool, Raycast), or
+sandboxed apps' private settings. "Free" means free of everything above, so a
+⌘ combo can still clash with an app. `keyfree` adds a note when that's likely.
+See [BACKLOG.md](BACKLOG.md) for what's planned.
+
+## Develop
+
+```
+bash tests/test.sh
+```
+
+MIT licensed.

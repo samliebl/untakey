@@ -1,0 +1,562 @@
+#!/usr/bin/env bash
+#
+# keyfree — find free macOS keyboard shortcuts, and check whether one is taken.
+# Read-only: it only reads your preferences and never changes anything.
+
+if (( BASH_VERSINFO[0] < 4 )); then
+  printf 'keyfree needs bash 4 or newer (macOS ships 3.2).\nInstall it with: brew install bash\n' >&2
+  exit 2
+fi
+
+set -uo pipefail
+export LC_ALL=en_US.UTF-8
+
+readonly VERSION="0.1.0"
+readonly M_CTRL=1 M_OPT=2 M_SHIFT=4 M_CMD=8
+
+# Printable ASCII 33..126, so a character code becomes a character without forking.
+readonly ASCII='!"#$%&'\''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+
+declare -A TAKEN=()
+ENTRIES=()          # "combo<TAB>source<TAB>action<TAB>tag"
+ROWS=()
+PLAIN=0
+BOLD= DIM= RED= GREEN= RST=
+ERRMSG=
+NK_KEY= NK_MODS=0 PC_MODS=0 PC_KEY= PC_COMBO= PM_MODS=0 PM_KEY= PM_COMBO=
+SC_MODS=0 SC_KEY= MW= MS= KL= AN= NOTE=
+
+die() { printf 'keyfree: %s\n' "$*" >&2; exit 2; }
+
+# ---------------------------------------------------------------- keys & combos
+
+# norm_key RAW IMPLIED_SHIFT_FOR_UPPERCASE MODS -> NK_KEY, NK_MODS (1 if unknown)
+norm_key() {
+  local raw=$1 upper=$2 m=$3 k
+  case $raw in
+    '!') raw=1; m=$((m | M_SHIFT)) ;;  '@') raw=2; m=$((m | M_SHIFT)) ;;
+    '#') raw=3; m=$((m | M_SHIFT)) ;;  '$') raw=4; m=$((m | M_SHIFT)) ;;
+    '%') raw=5; m=$((m | M_SHIFT)) ;;  '^') raw=6; m=$((m | M_SHIFT)) ;;
+    '&') raw=7; m=$((m | M_SHIFT)) ;;  '*') raw=8; m=$((m | M_SHIFT)) ;;
+    '(') raw=9; m=$((m | M_SHIFT)) ;;  ')') raw=0; m=$((m | M_SHIFT)) ;;
+    '_') raw='-'; m=$((m | M_SHIFT)) ;; '+') raw='='; m=$((m | M_SHIFT)) ;;
+    '{') raw='['; m=$((m | M_SHIFT)) ;; '}') raw=']'; m=$((m | M_SHIFT)) ;;
+    '|') raw='\'; m=$((m | M_SHIFT)) ;; ':') raw=';'; m=$((m | M_SHIFT)) ;;
+    '"') raw="'"; m=$((m | M_SHIFT)) ;; '<') raw=','; m=$((m | M_SHIFT)) ;;
+    '>') raw='.'; m=$((m | M_SHIFT)) ;; '?') raw='/'; m=$((m | M_SHIFT)) ;;
+    '~') raw='`'; m=$((m | M_SHIFT)) ;;
+  esac
+  if (( upper )) && [[ $raw == [A-Z] ]]; then m=$((m | M_SHIFT)); fi
+  k=${raw,,}
+  case $k in
+    enter) k=return ;; escape) k=esc ;; backspace | del) k=delete ;;
+    pgup) k=pageup ;; pgdn) k=pagedown ;; spacebar) k=space ;;
+  esac
+  case $k in
+    [a-z0-9] | '-' | '=' | '[' | ']' | '\' | ';' | "'" | ',' | '.' | '/' | '`') ;;
+    space | return | tab | esc | delete | left | right | up | down) ;;
+    home | end | pageup | pagedown | f[1-9] | f1[0-2]) ;;
+    *) return 1 ;;
+  esac
+  NK_KEY=$k NK_MODS=$m
+}
+
+mods_words() {  # MW = "ctrl+opt+shift+cmd+" prefix for the given modifier bits
+  MW=
+  (( $1 & M_CTRL ))  && MW+='ctrl+'
+  (( $1 & M_OPT ))   && MW+='opt+'
+  (( $1 & M_SHIFT )) && MW+='shift+'
+  (( $1 & M_CMD ))   && MW+='cmd+'
+  return 0
+}
+
+mods_sym() {  # MS = "⌃⌥⇧⌘" for the given modifier bits
+  MS=
+  (( $1 & M_CTRL ))  && MS+='⌃'
+  (( $1 & M_OPT ))   && MS+='⌥'
+  (( $1 & M_SHIFT )) && MS+='⇧'
+  (( $1 & M_CMD ))   && MS+='⌘'
+  return 0
+}
+
+key_label() {  # KL = how a key is shown on screen
+  case $1 in
+    left) KL='←' ;; right) KL='→' ;; up) KL='↑' ;; down) KL='↓' ;;
+    space) KL=Space ;; return) KL=Return ;; tab) KL=Tab ;; esc) KL=Esc ;;
+    delete) KL=Delete ;; home) KL=Home ;; end) KL=End ;;
+    pageup) KL='Page Up' ;; pagedown) KL='Page Down' ;;
+    f[0-9]*) KL=${1^^} ;; [a-z]) KL=${1^^} ;;
+    *) KL=$1 ;;
+  esac
+}
+
+split_combo() {  # canonical "ctrl+cmd+n" -> SC_MODS, SC_KEY
+  local s=$1 m=0
+  while :; do
+    case $s in
+      ctrl+?*)  m=$((m | M_CTRL));  s=${s#ctrl+} ;;
+      opt+?*)   m=$((m | M_OPT));   s=${s#opt+} ;;
+      shift+?*) m=$((m | M_SHIFT)); s=${s#shift+} ;;
+      cmd+?*)   m=$((m | M_CMD));   s=${s#cmd+} ;;
+      *) break ;;
+    esac
+  done
+  SC_MODS=$m SC_KEY=$s
+}
+
+pretty_combo() {  # canonical -> "⌃⌥⌘N" in MS+KL
+  split_combo "$1"
+  mods_sym "$SC_MODS"
+  key_label "$SC_KEY"
+  printf -v KL '%s%s' "$MS" "$KL"
+}
+
+# parse_mods "ctrl+opt" or "⌃⌥" -> PM_MODS (1 if invalid or empty)
+parse_mods() {
+  local s=${1,,} m=0 w
+  local -a words
+  s=${s//⌃/ ctrl }; s=${s//⌥/ opt }; s=${s//⇧/ shift }; s=${s//⌘/ cmd }
+  s=${s//+/ }; s=${s//-/ }
+  read -ra words <<<"$s"
+  (( ${#words[@]} )) || return 1
+  for w in "${words[@]}"; do
+    case $w in
+      ctrl | control) m=$((m | M_CTRL)) ;;
+      opt | option | alt) m=$((m | M_OPT)) ;;
+      shift) m=$((m | M_SHIFT)) ;;
+      cmd | command) m=$((m | M_CMD)) ;;
+      *) return 1 ;;
+    esac
+  done
+  PM_MODS=$m
+}
+
+# parse_combo TEXT -> PC_MODS, PC_KEY, PC_COMBO ; on failure returns 1 and sets ERRMSG
+parse_combo() {
+  local s=${1,,} m=0 c
+  local re='^(ctrl|control|opt|option|alt|shift|cmd|command|fn)[+ -](.+)$'
+  while [[ -n $s ]]; do
+    c=${s:0:1}
+    case $c in
+      '⌃') m=$((m | M_CTRL)) ;; '⌥') m=$((m | M_OPT)) ;;
+      '⇧') m=$((m | M_SHIFT)) ;; '⌘') m=$((m | M_CMD)) ;;
+      *) break ;;
+    esac
+    s=${s:1}
+  done
+  [[ $s == +?* ]] && s=${s#+}
+  while [[ $s =~ $re ]]; do
+    case ${BASH_REMATCH[1]} in
+      ctrl | control) m=$((m | M_CTRL)) ;;
+      opt | option | alt) m=$((m | M_OPT)) ;;
+      shift) m=$((m | M_SHIFT)) ;;
+      cmd | command) m=$((m | M_CMD)) ;;
+      fn) ERRMSG="the fn key isn't supported"; return 1 ;;
+    esac
+    s=${BASH_REMATCH[2]}
+  done
+  if [[ -z $s ]] || ! norm_key "$s" 0 "$m"; then
+    ERRMSG="can't read '$1' as a shortcut (try something like ctrl+opt+cmd+n)"
+    return 1
+  fi
+  PC_MODS=$NK_MODS PC_KEY=$NK_KEY
+  mods_words "$PC_MODS"
+  PC_COMBO=$MW$PC_KEY
+}
+
+# parse_menu_string "@$k" -> PM_COMBO. This is the notation macOS uses in
+# NSUserKeyEquivalents and Services: @=cmd ^=ctrl ~=opt $=shift, then the key.
+parse_menu_string() {
+  local s=$1 m=0 c raw cp
+  local ure='^\\+[Uu]([0-9a-fA-F]{4})$'
+  while (( ${#s} > 1 )); do
+    c=${s:0:1}
+    case $c in
+      '@') m=$((m | M_CMD)) ;; '^') m=$((m | M_CTRL)) ;;
+      '~') m=$((m | M_OPT)) ;; '$') m=$((m | M_SHIFT)) ;; '#') ;;
+      *) break ;;
+    esac
+    s=${s:1}
+  done
+  if [[ $s =~ $ure ]]; then
+    printf -v cp '%d' "0x${BASH_REMATCH[1]}"
+    if (( cp >= 63236 && cp <= 63247 )); then raw=f$((cp - 63235))
+    else
+      case $cp in
+        63232) raw=up ;; 63233) raw=down ;; 63234) raw=left ;; 63235) raw=right ;;
+        63273) raw=home ;; 63275) raw=end ;; 63276) raw=pageup ;; 63277) raw=pagedown ;;
+        8617 | 3) raw=return ;; 9) raw=tab ;; 27) raw=esc ;; 8 | 127) raw=delete ;;
+        *) return 1 ;;
+      esac
+    fi
+  elif (( ${#s} == 1 )); then raw=$s
+  else return 1
+  fi
+  norm_key "$raw" 1 "$m" || return 1
+  mods_words "$NK_MODS"
+  PM_COMBO=$MW$NK_KEY
+}
+
+# ---------------------------------------------------------------- reading shortcuts
+
+add_entry() {  # combo source action tag
+  ENTRIES+=("$1"$'\t'"$2"$'\t'"$3"$'\t'"$4")
+  if [[ -n ${TAKEN[$1]+x} ]]; then TAKEN[$1]+=" | $2: $3"; else TAKEN[$1]="$2: $3"; fi
+}
+
+load_builtin() {  # fixed shortcuts that don't appear in any preferences file
+  local combo action
+  while IFS='|' read -r combo action; do
+    parse_combo "$combo" && add_entry "$PC_COMBO" macOS "$action" builtin
+  done <<'EOF'
+cmd+tab|Switch applications
+shift+cmd+tab|Switch applications (backwards)
+cmd+q|Quit app
+cmd+h|Hide app
+opt+cmd+h|Hide other apps
+cmd+m|Minimize window
+opt+cmd+esc|Force Quit
+shift+cmd+q|Log out
+ctrl+cmd+q|Lock screen
+ctrl+cmd+space|Emoji & symbols
+EOF
+}
+
+action_name() {  # AN = readable name for a system shortcut ID
+  case $1 in
+    7) AN="Move focus to the menu bar" ;; 8) AN="Move focus to the Dock" ;;
+    27) AN="Move focus to next window in app" ;;
+    28) AN="Save screenshot of screen" ;; 29) AN="Copy screenshot of screen" ;;
+    30) AN="Save screenshot of selection" ;; 31) AN="Copy screenshot of selection" ;;
+    32) AN="Mission Control" ;; 33) AN="Application windows" ;; 36) AN="Show Desktop" ;;
+    52) AN="Turn Dock hiding on/off" ;;
+    60) AN="Select previous input source" ;; 61) AN="Select next input source" ;;
+    64) AN="Spotlight search" ;; 65) AN="Finder search window" ;;
+    79) AN="Move left a space" ;; 81) AN="Move right a space" ;;
+    98) AN="Show Help menu" ;;
+    11[89] | 12[0-7]) AN="Switch to Desktop $(($1 - 117))" ;;
+    160) AN="Launchpad & Dock" ;; 163) AN="Notification Center" ;;
+    184) AN="Screenshot and recording options" ;; 190) AN="Quick Note" ;;
+    *) AN="System shortcut (ID $1)" ;;
+  esac
+}
+
+load_system() {
+  local id ascii code mods m key count=0
+  while read -r id ascii code mods; do
+    m=0 key=
+    (( mods & 262144 ))  && m=$((m | M_CTRL))
+    (( mods & 524288 ))  && m=$((m | M_OPT))
+    (( mods & 131072 ))  && m=$((m | M_SHIFT))
+    (( mods & 1048576 )) && m=$((m | M_CMD))
+    if (( ascii == 32 )); then key=space
+    elif (( ascii >= 33 && ascii <= 126 )); then key=${ASCII:ascii-33:1}
+    else
+      case $code in
+        36) key=return ;; 48) key=tab ;; 49) key=space ;; 51) key=delete ;; 53) key=esc ;;
+        123) key=left ;; 124) key=right ;; 125) key=down ;; 126) key=up ;;
+        122) key=f1 ;; 120) key=f2 ;; 99) key=f3 ;; 118) key=f4 ;; 96) key=f5 ;; 97) key=f6 ;;
+        98) key=f7 ;; 100) key=f8 ;; 101) key=f9 ;; 109) key=f10 ;; 103) key=f11 ;; 111) key=f12 ;;
+        115) key=home ;; 119) key=end ;; 116) key=pageup ;; 121) key=pagedown ;;
+      esac
+    fi
+    [[ -n $key ]] && norm_key "$key" 0 "$m" || continue
+    mods_words "$NK_MODS"
+    action_name "$id"
+    add_entry "$MW$NK_KEY" "System Settings" "$AN" system
+    count=$((count + 1))
+  done < <(defaults export com.apple.symbolichotkeys - 2>/dev/null | plutil -p - 2>/dev/null | awk '
+    /^    "[0-9]+" => \{/          { id = $1; gsub(/[^0-9]/, "", id); en = 0; n = 0 }
+    /"enabled" =>/                 { en = ($3 == "true") }
+    /^          [0-9] => -?[0-9]+/ { p[$1 + 0] = $3; n++ }
+    /"type" =>/                    { if (en && n >= 3) print id, p[0], p[1], p[2]; n = 0 }')
+  (( count )) || printf 'keyfree: warning: could not read the system shortcuts\n' >&2
+}
+
+load_custom() {  # per-app shortcuts set in System Settings > Keyboard > App Shortcuts
+  local line domain label block name val
+  local dre="domain '(.*)':" lre='^[[:space:]]*(.+)[[:space:]]=[[:space:]]"(.*)";$'
+  while IFS= read -r line; do
+    [[ $line =~ $dre ]] || continue
+    domain=${BASH_REMATCH[1]} label=$domain
+    if [[ $domain == "Apple Global Domain" ]]; then domain=NSGlobalDomain label="all apps"; fi
+    block=$(defaults read "$domain" NSUserKeyEquivalents 2>/dev/null </dev/null) || continue
+    while IFS= read -r line; do
+      [[ $line =~ $lre ]] || continue
+      name=${BASH_REMATCH[1]} val=${BASH_REMATCH[2]}
+      name=${name#\"} name=${name%\"}
+      name=${name//\\U/\\u}
+      printf -v name '%b' "$name"
+      parse_menu_string "$val" && add_entry "$PM_COMBO" "$label" "$name" custom
+    done <<<"$block"
+  done < <(defaults find NSUserKeyEquivalents 2>/dev/null | grep '^Found ')
+}
+
+load_services() {  # Services, Quick Actions and Shortcuts given a key in System Settings
+  local svc keyeq name rest
+  while IFS=$'\t' read -r svc keyeq; do
+    parse_menu_string "$keyeq" || continue
+    rest=${svc#* - } name=${rest% - *}
+    [[ $name =~ ^[0-9A-Fa-f]{8}- ]] && name="A Shortcut or Quick Action"
+    add_entry "$PM_COMBO" Services "$name" services
+  done < <(defaults read pbs NSServicesStatus 2>/dev/null </dev/null | awk '
+    /^    ".*" = *\{/        { s = $0; sub(/^    "/, "", s); sub(/" = *\{.*/, "", s); svc = s }
+    /"key_equivalent" = /    { v = $0; sub(/.*= "/, "", v); sub(/";.*/, "", v); print svc "\t" v }')
+}
+
+load_all() {
+  local show=0
+  [[ -t 2 ]] && (( PLAIN == 0 )) && show=1
+  (( show )) && printf 'Reading shortcuts…' >&2
+  load_builtin
+  load_system
+  load_custom
+  load_services
+  (( show )) && printf '\r\033[K' >&2
+  return 0
+}
+
+# ---------------------------------------------------------------- output
+
+setup_output() {
+  [[ -t 1 ]] || PLAIN=1
+  if (( PLAIN == 0 )) && [[ -z ${NO_COLOR:-} ]]; then
+    BOLD=$'\e[1m' DIM=$'\e[2m' RED=$'\e[31m' GREEN=$'\e[32m' RST=$'\e[0m'
+  fi
+}
+
+# print_table HEADER(tab-separated) ; rows come from the ROWS array
+print_table() {
+  local hdr=$1 row i n avail total line text pad
+  local -a fields widths=()
+  IFS=$'\t' read -ra fields <<<"$hdr"
+  n=${#fields[@]}
+  for ((i = 0; i < n; i++)); do widths[i]=${#fields[i]}; done
+  for row in "${ROWS[@]}"; do
+    IFS=$'\t' read -ra fields <<<"$row"
+    for ((i = 0; i < n; i++)); do
+      (( ${#fields[i]} > widths[i] )) && widths[i]=${#fields[i]}
+    done
+  done
+  local cols=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  avail=$cols
+  for ((i = 0; i < n - 1; i++)); do avail=$((avail - widths[i] - 2)); done
+  (( avail < 20 )) && avail=20
+  (( widths[n - 1] > avail )) && widths[n - 1]=$avail
+  total=0
+  for ((i = 0; i < n; i++)); do total=$((total + widths[i] + (i < n - 1 ? 2 : 0))); done
+  printf -v line '%*s' "$total" ''
+  line=${line// /─}
+
+  IFS=$'\t' read -ra fields <<<"$hdr"
+  printf '%s' "$BOLD"
+  for ((i = 0; i < n; i++)); do
+    printf '%s' "${fields[i]}"
+    (( i < n - 1 )) && printf '%*s' $((widths[i] - ${#fields[i]} + 2)) ''
+  done
+  printf '%s\n%s%s%s\n' "$RST" "$DIM" "$line" "$RST"
+
+  for row in "${ROWS[@]}"; do
+    IFS=$'\t' read -ra fields <<<"$row"
+    for ((i = 0; i < n; i++)); do
+      text=${fields[i]}
+      if (( i == n - 1 && ${#text} > widths[i] )); then text="${text:0:widths[i] - 1}…"; fi
+      pad=$((widths[i] - ${#text} + 2))
+      case $text in
+        '✓'*) printf '%s%s%s' "$GREEN" "$text" "$RST" ;;
+        '✗'*) printf '%s%s%s' "$RED" "$text" "$RST" ;;
+        *) printf '%s' "$text" ;;
+      esac
+      (( i < n - 1 )) && printf '%*s' "$pad" ''
+    done
+    printf '\n'
+  done
+}
+
+combo_note() {  # NOTE = a heads-up about combos that clash with typing or app menus
+  local m=$1 key=$2 typing=0
+  NOTE=
+  case $key in
+    [a-z0-9] | '-' | '=' | '[' | ']' | '\' | ';' | "'" | ',' | '.' | '/' | '`' | space) typing=1 ;;
+  esac
+  if (( typing && (m == 0 || m == M_SHIFT) )); then NOTE="would fire while you type"
+  elif (( typing && (m & M_OPT) && !(m & (M_CTRL | M_CMD)) )); then NOTE="⌥ types special characters"
+  elif (( (m & M_CMD) && !(m & M_CTRL) )); then NOTE="apps often use ⌘ combos in menus"
+  fi
+}
+
+# ---------------------------------------------------------------- commands
+
+usage() {
+  cat <<'EOF'
+keyfree — find free macOS keyboard shortcuts, and check whether one is taken.
+
+Usage:
+  keyfree list [--source system|custom|services|builtin]
+  keyfree check COMBO...
+  keyfree suggest [-n 1..100] [--mods SETS] [--keys KEYS]
+  keyfree --version | --help
+
+COMBO can be written ctrl+opt+cmd+n or ⌃⌥⌘N.
+Output is a table in the terminal and plain text when piped (or with --plain).
+
+  list      Show every shortcut that is taken.
+  check     Say whether each COMBO is free. Exit status: 0 all free, 1 some taken, 2 bad input.
+  suggest   Show free shortcuts, safest first (default 10).
+              --mods  comma-separated modifier sets, e.g. "ctrl+opt,ctrl+opt+cmd"
+              --keys  comma-separated keys to try, e.g. "n,t,f5"
+
+keyfree only reads your preferences. It never changes anything.
+EOF
+}
+
+cmd_list() {
+  local src=all line combo source action tag
+  while (( $# )); do
+    case $1 in
+      --source)
+        [[ $# -ge 2 ]] || die "--source needs a value (system, custom, services or builtin)"
+        src=$2; shift 2 ;;
+      *) die "unknown option for list: $1 (try keyfree --help)" ;;
+    esac
+  done
+  case $src in all | system | custom | services | builtin) ;; *) die "unknown source '$src'" ;; esac
+  load_all
+  local -a sorted
+  mapfile -t sorted < <(printf '%s\n' "${ENTRIES[@]}" | LC_ALL=C sort -t $'\t' -k1,1 -k2,2)
+  ROWS=()
+  for line in "${sorted[@]}"; do
+    IFS=$'\t' read -r combo source action tag <<<"$line"
+    [[ $src == all || $src == "$tag" ]] || continue
+    if (( PLAIN )); then printf '%s\t%s\t%s\n' "$combo" "$source" "$action"
+    else pretty_combo "$combo"; ROWS+=("$KL"$'\t'"$source"$'\t'"$action")
+    fi
+  done
+  if (( ! PLAIN )); then
+    print_table $'SHORTCUT\tSOURCE\tACTION'
+    printf '\n%s%d shortcuts taken%s\n' "$DIM" "${#ROWS[@]}" "$RST"
+  fi
+}
+
+cmd_check() {
+  (( $# )) || die "check needs at least one shortcut, e.g. keyfree check ctrl+opt+cmd+n"
+  local arg bad=0 taken=0 detail
+  local -a combos=() mods=() keys=()
+  for arg in "$@"; do
+    if parse_combo "$arg"; then combos+=("$PC_COMBO") mods+=("$PC_MODS") keys+=("$PC_KEY")
+    else printf 'keyfree: %s\n' "$ERRMSG" >&2; bad=1
+    fi
+  done
+  (( ${#combos[@]} )) || exit 2
+  load_all
+  ROWS=()
+  local i
+  for i in "${!combos[@]}"; do
+    if [[ -n ${TAKEN[${combos[i]}]+x} ]]; then
+      taken=1 detail=${TAKEN[${combos[i]}]}
+      (( PLAIN )) && printf '%s\ttaken\t%s\n' "${combos[i]}" "$detail"
+      pretty_combo "${combos[i]}"; ROWS+=("$KL"$'\t✗ Taken\t'"$detail")
+    else
+      combo_note "${mods[i]}" "${keys[i]}"
+      (( PLAIN )) && printf '%s\tfree\t%s\n' "${combos[i]}" "${NOTE:--}"
+      pretty_combo "${combos[i]}"; ROWS+=("$KL"$'\t✓ Free\t'"${NOTE:--}")
+    fi
+  done
+  (( PLAIN )) || print_table $'SHORTCUT\tSTATUS\tDETAILS'
+  (( bad )) && exit 2
+  exit "$taken"
+}
+
+DEFAULT_MODSETS=(11 3 9 10 15 7 13 14)   # ⌃⌥⌘, ⌃⌥, ⌃⌘, ⌥⌘, then the same ideas with ⇧
+DEFAULT_KEYS=(a s d f g h j k l q w e r t y u i o p z x c v b n m 1 2 3 4 5 6 7 8 9 0
+              f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12)
+
+# suggest_collect N -> SUGG (array of "mods key"), using MODSETS, KEYS and TAKEN
+suggest_collect() {
+  local n=$1 m k
+  SUGG=()
+  for m in "${MODSETS[@]}"; do
+    mods_words "$m"
+    for k in "${KEYS[@]}"; do
+      [[ -n ${TAKEN[$MW$k]+x} ]] && continue
+      SUGG+=("$m $k")
+      (( ${#SUGG[@]} >= n )) && return 0
+    done
+  done
+  return 0
+}
+
+cmd_suggest() {
+  local n=10 modarg= keyarg= set key i m k
+  while (( $# )); do
+    case $1 in
+      -n | --count) [[ $# -ge 2 ]] || die "$1 needs a number"; n=$2; shift 2 ;;
+      --mods) [[ $# -ge 2 ]] || die "--mods needs a value"; modarg=$2; shift 2 ;;
+      --keys) [[ $# -ge 2 ]] || die "--keys needs a value"; keyarg=$2; shift 2 ;;
+      *) die "unknown option for suggest: $1 (try keyfree --help)" ;;
+    esac
+  done
+  [[ $n =~ ^[0-9]+$ ]] && (( 10#$n >= 1 && 10#$n <= 100 )) || die "-n must be a whole number from 1 to 100"
+  n=$((10#$n))
+  MODSETS=("${DEFAULT_MODSETS[@]}") KEYS=("${DEFAULT_KEYS[@]}")
+  if [[ -n $modarg ]]; then
+    MODSETS=()
+    IFS=',' read -ra sets <<<"$modarg"
+    for set in "${sets[@]}"; do
+      parse_mods "$set" || die "can't read '$set' as modifiers (try ctrl+opt+cmd)"
+      MODSETS+=("$PM_MODS")
+    done
+  fi
+  if [[ -n $keyarg ]]; then
+    KEYS=()
+    IFS=',' read -ra sets <<<"$keyarg"
+    for key in "${sets[@]}"; do
+      norm_key "$key" 0 0 || die "unknown key '$key'"
+      KEYS+=("$NK_KEY")
+    done
+  fi
+  load_all
+  suggest_collect "$n"
+  if (( ${#SUGG[@]} == 0 )); then
+    printf 'keyfree: no free shortcuts matched those options\n' >&2
+    exit 1
+  fi
+  ROWS=()
+  for i in "${!SUGG[@]}"; do
+    read -r m k <<<"${SUGG[i]}"
+    mods_words "$m"
+    if (( PLAIN )); then printf '%s\n' "$MW$k"; continue; fi
+    pretty_combo "$MW$k"
+    combo_note "$m" "$k"
+    ROWS+=("$((i + 1))"$'\t'"$KL"$'\t'"${NOTE:--}")
+  done
+  if (( ! PLAIN )); then
+    print_table $'#\tSHORTCUT\tNOTES'
+    printf '\n%s%d free shortcuts, safest first%s\n' "$DIM" "${#SUGG[@]}" "$RST"
+    (( ${#SUGG[@]} < n )) && printf '%sOnly %d matched your options.%s\n' "$DIM" "${#SUGG[@]}" "$RST"
+  fi
+  return 0
+}
+
+main() {
+  [[ $(uname) == Darwin ]] || die "keyfree only works on macOS."
+  local -a args=()
+  local a
+  for a in "$@"; do
+    if [[ $a == --plain ]]; then PLAIN=1; else args+=("$a"); fi
+  done
+  set -- "${args[@]+"${args[@]}"}"
+  setup_output
+  local cmd=${1:-help}
+  (( $# )) && shift
+  case $cmd in
+    list) cmd_list "$@" ;;
+    check) cmd_check "$@" ;;
+    suggest) cmd_suggest "$@" ;;
+    help | -h | --help) usage ;;
+    version | -V | --version) printf 'keyfree %s\n' "$VERSION" ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
