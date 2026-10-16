@@ -99,6 +99,6 @@ bash tests/test.sh
 
 ## Credits
 
-Written with 🤖 and ❤️ by Sam Liebl & Claude.
+Written with 🤖 and ❤️ by Sam Liebl & Claude (Anthropic).
 
 MIT licensed.
