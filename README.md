@@ -12,8 +12,10 @@ untakey check ctrl+opt+cmd+n  # is this one free?
 untakey suggest -n 10         # give me ten free ones
 ```
 
-It is a single bash script. It only reads your preferences and never changes
-anything.
+**100% bash.** One readable script, no Python, no Node, no compiled code. It
+uses only tools every Mac already has (`defaults`, `plutil`, `awk`), plus bash 5,
+which Homebrew installs for you. It only reads your preferences and never
+changes anything.
 
 > **Read this first: "free" means free of the shortcuts untakey can read, not
 > free of every shortcut on your Mac.** It cannot see the shortcuts built into
