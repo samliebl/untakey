@@ -2,7 +2,7 @@ class Untakey < Formula
   desc "Find free macOS keyboard shortcuts and check whether one is taken"
   homepage "https://github.com/samliebl/untakey"
   url "https://github.com/samliebl/untakey/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "REPLACE_WITH_SHA256_AFTER_TAGGING"
+  sha256 "5f635630d86198c3ab3026172702771459af2cd115502bd8402e787b1d3511af"
   license "MIT"
   head "https://github.com/samliebl/untakey.git", branch: "main"
 
