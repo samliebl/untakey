@@ -30,7 +30,7 @@ def rpath(pl,rad):
     return d+"Z"
 def build(D):
     def zs(x): t=(x-.5)/(.5-I); return H-D*(1-t*t)
-    N=14
+    N=48
     def curveY(y,x0,x1): return [(x0+(x1-x0)*k/N,y,zs(x0+(x1-x0)*k/N)) for k in range(N+1)]
     def uscale(X,Y,Z):
         a=P([X,Y,Z]);b=P([X+.1,Y,Z]);c=P([X,Y+.1,Z]); return (math.dist(a,b)+math.dist(a,c))*5
@@ -98,6 +98,7 @@ def build(D):
             o.append(f'<polygon points="{pts([p(.12,0,.05),p(.2,0,.05),p(.21,i*.7,H-.05),p(.14,i*.7,H-.05)])}" fill="{gl}" opacity=".85"/>')
         e=lambda l:f'<polyline points="{pts(l)}" fill="none" stroke="{INK}" stroke-width="{SW}" stroke-linecap="round" stroke-linejoin="round"/>'
         o+= [e(fcE),e(rtE),e(vtE)]
+        o.append(f'<circle cx="{p(1-i,i,H)[0]:.1f}" cy="{p(1-i,i,H)[1]:.1f}" r="{SW/2:.2f}" fill="{INK}"/>')
         o.append(legend(leg,X0)); o.append('</g>')
         o.append(f'<path d="{rpath(sil,9)}" fill="none" stroke="{INK}" stroke-width="{SW}" stroke-linejoin="round"/>')
         s="\n".join(o)
