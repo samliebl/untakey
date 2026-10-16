@@ -15,6 +15,13 @@ untakey suggest -n 10         # give me ten free ones
 It is a single bash script. It only reads your preferences and never changes
 anything.
 
+> **Read this first: "free" means free of the shortcuts untakey can read, not
+> free of every shortcut on your Mac.** It cannot see the shortcuts built into
+> apps' own menus (⌘S, ⌘N, ⌘B and so on), hotkeys set inside tools like
+> Keyboard Maestro, Alfred, BetterTouchTool or Raycast, or a few shortcuts macOS
+> handles internally. Combos that use ⌃⌥⌘ are the safest bet, because apps almost
+> never use them. See [What it can and can't see](#what-it-can-and-cant-see).
+
 ## Install
 
 ```
