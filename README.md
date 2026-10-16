@@ -97,4 +97,9 @@ See [BACKLOG.md](BACKLOG.md) for what's planned.
 bash tests/test.sh
 ```
 
+## Credits
+
+Idea and design by Sam Liebl. Written together with Claude (Anthropic) using
+Claude Code.
+
 MIT licensed.
