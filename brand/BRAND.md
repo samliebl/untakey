@@ -49,7 +49,15 @@ Still suggestions:
 - Keep the dark background as `#2e2a24` for any site or image with a dark theme; keep text cream (`#e6dfd0`) on it.
 - Respect `NO_COLOR` and non-TTY output: no color there.
 
+## Wordmark
+
+`wordmark/wordmark.svg` is the wordmark: "untakey" in a heavy, rounded geometric sans, all lowercase. "unta" is ink brown `#2e2a24` and "key" is gold `#f9c70a`. Designed by Sam (custom lettering, based on his own input), not a typeface we picked, so there is no font to install or license. `wordmark-original.webp` is his original image; `wordmark.svg` is a clean two-layer vector trace of it (`trace_wordmark.py`, within 0.08% of the original's pixels), so use the SVG, not the webp. `wordmark-render.png` is a preview on white.
+
+- Don't retype it in a font. Use the SVG as it is.
+- The gold in the wordmark (`#f9c70a`) is close to, but not the same as, the logo's gold top (`#ffd21f`). Don't "fix" it without asking.
+- Possible future change, on hold: an angled facet cut with a darker gold face on the bottom of the `y`'s tail (like a cut key blank), no drop shadow and no outline. Not started; don't do it unless asked.
+- The wordmark's letterforms resemble existing heavy rounded sans fonts. If it is ever used commercially at scale, it is worth running it through a font-identification tool to be sure it isn't a near copy of a licensed face.
+
 ## Not decided yet
 
-- Wordmark font. Candidates: Gabarito or Bricolage Grotesque (free, OFL), GT Maru, Roobert or ABC Diatype Rounded (paid).
 - Small-size icon / favicon (not requested yet).
