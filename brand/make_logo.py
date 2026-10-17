@@ -53,7 +53,7 @@ def build(D):
         if kind==';':
             o+= [dotp(X0,cx,up+.05,.021,LEG),dotp(X0,cx,up-.05,.021,LEG),dotp(X0,cx,lo+.05,.021,LEG),stroke([(0,-.03),(-.022,-.07)],cx,lo,.024,LEG,X0)]
             return "".join(o)
-        for dx in(-.055,.055): o.append(stroke([(dx+.012,.06),(dx-.012,-.04)],cx,up,.032,FACE,X0))
+        for dx in(-.055,.055): o.append(stroke([(dx+.012,.04),(dx-.012,-.04)],cx,up,.032,FACE,X0))
         o.append(stroke(curve((-.1,.03),(0,-.065),(.1,.03)),cx,lo,.032,FACE,X0)); return "".join(o)
     def star4(x,y,r,k,fill,sw,rot=0):
         a=[(0,-r),(r,0),(0,r),(-r,0)]; c=[(k*r,-k*r),(k*r,k*r),(-k*r,k*r),(-k*r,-k*r)]
@@ -70,7 +70,7 @@ def build(D):
     def key(kind,X0,leg,spark=False):
         top,fr,rt,sh=PAL[kind]; i=I; p=lambda x,y,z:P([X0+x,y,z]); pw=lambda q:P([X0+q[0],q[1],q[2]])
         cid[0]+=1; k=f"ck{int(D*100)}x{cid[0]}"
-        CC=.17
+        CC=.001
         arc=[]
         for n_ in range(11):
             u=n_/10; ax=(1-u)**2*i+2*(1-u)*u*i+u*u*(i+CC); ay=(1-u)**2*(i+CC)+2*(1-u)*u*i+u*u*i
@@ -112,11 +112,11 @@ def build(D):
             s+="\n"+sparkle(bx,by,r)+"\n"+sparkle(bx+r*.72,by-r*.9,r*.3)
         return s
     return "\n".join([key('beige',keys[0],'L'),key('beige',keys[1],';'),key('gold',keys[2],"'")])
-bgs=[("#ffffff",0),("#ffffff",.06),("#2e2a24",0),("#2e2a24",.06)]
+bgs=[("#ffffff",0),("#ffffff",.04),("#2e2a24",0),("#2e2a24",.04)]
 o=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CELL*2} {CELL*2}" width="{CELL*2}" height="{CELL*2}">']
 for n,(bg,D) in enumerate(bgs):
     x=(n%2)*CELL;y=(n//2)*CELL
     o.append(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{bg}"/><g transform="translate({x},{y})">{build(D)}</g>')
 o.append('</svg>'); open('sheet8.svg','w').write("\n".join(o))
 open('keys8-flat.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CELL} {CELL}" width="{CELL}" height="{CELL}">{build(0)}</svg>')
-open('keys8-scoop.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CELL} {CELL}" width="{CELL}" height="{CELL}">{build(.06)}</svg>')
+open('keys8-scoop.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CELL} {CELL}" width="{CELL}" height="{CELL}">{build(.04)}</svg>')
