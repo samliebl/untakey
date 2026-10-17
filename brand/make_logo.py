@@ -30,7 +30,7 @@ def rpath(pl,rad):
     return d+"Z"
 def build(D):
     def zs(x): t=(x-.5)/(.5-I); return H-D*(1-t*t)
-    N=48
+    N=120
     def curveY(y,x0,x1): return [(x0+(x1-x0)*k/N,y,zs(x0+(x1-x0)*k/N)) for k in range(N+1)]
     def uscale(X,Y,Z):
         a=P([X,Y,Z]);b=P([X+.1,Y,Z]);c=P([X,Y+.1,Z]); return (math.dist(a,b)+math.dist(a,c))*5
@@ -70,7 +70,12 @@ def build(D):
     def key(kind,X0,leg,spark=False):
         top,fr,rt,sh=PAL[kind]; i=I; p=lambda x,y,z:P([X0+x,y,z]); pw=lambda q:P([X0+q[0],q[1],q[2]])
         cid[0]+=1; k=f"c{D}{cid[0]}"
-        fc=[pw(q) for q in curveY(i,i,1-i)]; bc=[pw(q) for q in curveY(1-i,1-i,i)]
+        CC=.08
+        arc=[]
+        for k in range(11):
+            u=k/10; ax=(1-u)**2*i+2*(1-u)*u*i+u*u*(i+CC); ay=(1-u)**2*(i+CC)+2*(1-u)*u*i+u*u*i
+            arc.append((ax,ay,zs(ax)))
+        fc=[pw(q) for q in arc]+[pw(q) for q in curveY(i,i+CC,1-i)][1:]; bc=[pw(q) for q in curveY(1-i,1-i,i)]
         sil=[(p(0,0,0),1),(fc[0],1),(bc[-1],1)]+[(q,0) for q in bc[::-1][1:-1]][::-1]
         # silhouette: p0 -> front-left top -> back-left top -> back curve to back-right -> right back base -> right front base
         JR=3.5
