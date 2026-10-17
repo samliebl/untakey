@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brand/logo.svg" alt="Three keycaps in a row; the last one is gold and smiling" width="260">
+  <img src="brand/logo.png" alt="Three keycaps in a row; the last one is gold and smiling" width="260">
 </p>
 
 <h1 align="center">untakey</h1>

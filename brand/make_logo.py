@@ -69,11 +69,11 @@ def build(D):
     cid=[0]
     def key(kind,X0,leg,spark=False):
         top,fr,rt,sh=PAL[kind]; i=I; p=lambda x,y,z:P([X0+x,y,z]); pw=lambda q:P([X0+q[0],q[1],q[2]])
-        cid[0]+=1; k=f"c{D}{cid[0]}"
-        CC=.08
+        cid[0]+=1; k=f"ck{int(D*100)}x{cid[0]}"
+        CC=.17
         arc=[]
-        for k in range(11):
-            u=k/10; ax=(1-u)**2*i+2*(1-u)*u*i+u*u*(i+CC); ay=(1-u)**2*(i+CC)+2*(1-u)*u*i+u*u*i
+        for n_ in range(11):
+            u=n_/10; ax=(1-u)**2*i+2*(1-u)*u*i+u*u*(i+CC); ay=(1-u)**2*(i+CC)+2*(1-u)*u*i+u*u*i
             arc.append((ax,ay,zs(ax)))
         fc=[pw(q) for q in arc]+[pw(q) for q in curveY(i,i+CC,1-i)][1:]; bc=[pw(q) for q in curveY(1-i,1-i,i)]
         sil=[(p(0,0,0),1),(fc[0],1),(bc[-1],1)]+[(q,0) for q in bc[::-1][1:-1]][::-1]
